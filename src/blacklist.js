@@ -5,16 +5,14 @@
 //   HUBOT_DEFAULT_COMMANDS - comma seperated list of command ids that can't be disabled.
 //
 // Commands:
-//   hubot enable/disable <commandId> - Enable/disable this command in the current room
-//   hubot enable/disable all - Enable/disable all commands in the current room
-//   hubot list commands - Displays all commands for a room sorted into enabled and disabled
+//   hubot lock/unlock deploys - lock/unlock deploys in the current room
 //
 // Author:
 //   Kristen Mills <kristen@kristen-mills.com>
 
 
 module.exports = function(robot) {
-  var defaults = ['room.enable', 'room.list-commands', 'room.disable'];
+  var defaults = ['room.unlock', 'room.list-commands', 'room.lock'];
   if(process.env.HUBOT_DEFAULT_COMMANDS){
     var split = process.env.HUBOT_DEFAULT_COMMANDS.split(',');
     defaults = robot.brain.data.defaultCommands = defaults.concat(split);
@@ -22,12 +20,12 @@ module.exports = function(robot) {
     robot.brain.data.defaultCommands = defaults;
   }
 
-  robot.respond(/enable (.*)/i, {id: 'room.enable'}, function(msg) {
+  robot.respond(/unlock (.*)/i, {id: 'room.unlock'}, function(msg) {
     var room = msg.message.room;
     var user = msg.envelope.user;
 
     if(!process.env.HUBOT_AUTH_ADMIN || // if not using hubot auth anyone can do this
-      robot.auth.hasRole(user, room + '-admin') ||
+      robot.auth.hasRole(user, 'deployer') ||
       robot.auth.isAdmin(user)
     ) {
       var commandId = msg.match[1];
@@ -49,18 +47,18 @@ module.exports = function(robot) {
       } else if(commands.indexOf(commandId) === -1){
         msg.send(commandId + " is not an available command.  run `list commands` to see the list.");
       } else if(index === -1){
-        msg.send(commandId + " is already enabled in " + room);
+        msg.send(commandId + " are already unlocked in " + room);
       } else {
         commandBlacklists[room].splice(index, 1);
         robot.brain.save();
-        msg.send(commandId + " is enabled in " + room);
+        msg.send("Ok, " + commandId + " are unlocked in " + room);
       }
     } else {
-      msg.send("Only admins can enable commands");
+      msg.send("I'm sorry, I'm afraid I cant do that");
     }
   });
 
-  robot.respond(/disable (.*)/i, {id: 'room.disable'}, function(msg) {
+  robot.respond(/lock (.*)/i, {id: 'room.lock'}, function(msg) {
     var room = msg.message.room;
     var user = msg.envelope.user;
 
@@ -87,7 +85,7 @@ module.exports = function(robot) {
         robot.brain.save();
         msg.send('All commands disabled in ' + room);
       } else if(index !== -1){
-        msg.send(commandId + " is already disabled in " + room);
+        msg.send(commandId + " are already locked in " + room);
       } else if(defaults.indexOf(commandId) !== -1){
         msg.send("Why on earth would you want to disable this command? Stahp.")
       } else if(commands.indexOf(commandId) === -1) {
@@ -95,33 +93,11 @@ module.exports = function(robot) {
       } else {
         commandBlacklists[room].push(commandId);
         robot.brain.save();
-        msg.send(commandId + " is disabled in " + room);
+        msg.send("Ok, " + commandId + " are locked in " + room);
       }
     } else {
-      msg.send("Only admins can disable commands");
+      msg.send("I'm sorry, I'm afraid I cant do that");
     }
   });
 
-  robot.respond(/list commands/i, {id: 'room.list-commands'}, function(msg) {
-    var room = msg.message.room;
-
-    var commandBlacklists = robot.brain.data.commandBlacklists || {};
-    var disabled = commandBlacklists[room] || [];
-
-    var enabled = robot.listeners.reduce(function(prev, listener){
-      if(disabled.indexOf(listener.options.id) == -1){
-        if(listener.options.id) {
-          prev.push(listener.options.id);
-        }
-      }
-      return prev;
-    }, []);
-
-    var message = "*Enabled Commands in " + room + "*\n";
-    message += enabled.join('\n');
-    message += "\n\n*Disabled Commands in " + room + "*\n";
-    message += disabled.join('\n');
-
-    msg.send(message);
-  });
 }

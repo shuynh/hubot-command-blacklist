@@ -10,7 +10,7 @@ module.exports = function(robot) {
         var cb = robot.brain.data.commandBlacklists || {};
         var blacklist = cb[room] || [];
         if (blacklist.indexOf(id) !== -1) {
-          context.response.reply("Sorry you aren't allowed to run that command in " + room);
+          context.response.reply("Sorry, that command is locked in " + room + " rn.");
           done();
         } else {
           next(done);
